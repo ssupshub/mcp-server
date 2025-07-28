@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-service
+  namespace: mcp
+labels:
+  app: mcp
+spec:
+  type: LoadBalancer
+  selector:
+    app: mcp
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
