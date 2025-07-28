@@ -58,7 +58,7 @@ Ensure the following tools are installed and configured:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-org/mcp-server.git
+   git clone https://github.com/ssupshub/mcp-server.git
    cd mcp-server
    ```
 
@@ -151,6 +151,4 @@ mcp-server/
 3. Commit changes
 4. Open a pull request
 
-## License
 
-Released under the [MIT License](LICENSE).
