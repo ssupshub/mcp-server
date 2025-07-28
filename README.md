@@ -20,7 +20,6 @@ A **Microservice Control Plane (MCP)** server built with Node.js and Express, de
 14. [CI/CD Integration](#cicd-integration)
 15. [Troubleshooting](#troubleshooting)
 16. [Contributing](#contributing)
-17. [License](#license)
 
 ---
 
@@ -61,7 +60,7 @@ The MCP Server offers a lightweight control plane for monitoring and managing mi
 ### 1. Locally (Node.js)
 
 ```bash
-git clone https://github.com/your-org/mcp-server.git
+git clone https://github.com/ssupshub/mcp-server.git
 cd mcp-server
 npm install
 npm run dev
@@ -83,7 +82,7 @@ docker run -d -p 3000:3000 --env-file .env mcp-server
 ```bash
 sudo apt update && sudo apt install -y docker.io git
 
-git clone https://github.com/your-org/mcp-server.git
+git clone https://github.com/ssupshub/mcp-server.git
 cd mcp-server
 docker build -t mcp-server .
 docker run -d -p 3000:3000 --env-file .env mcp-server
@@ -127,7 +126,7 @@ kubectl apply -f k8s/ingress.yaml
 1. **Clone Repo**
 
 ```bash
-git clone https://github.com/your-org/mcp-server.git
+git clone https://github.com/ssupshub/mcp-server.git
 cd mcp-server
 ```
 
@@ -304,6 +303,4 @@ jobs:
 3. Implement changes and tests
 4. Open a Pull Request
 
-## License
 
-This project is licensed under the MIT License.
