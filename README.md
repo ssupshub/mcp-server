@@ -15,7 +15,6 @@ A **Microservice Control Plane (MCP)** server built with Node.js and Express, de
 9. [Configuration](#configuration)
 10. [Troubleshooting](#troubleshooting)
 11. [Contributing](#contributing)
-12. [License](#license)
 
 ---
 
