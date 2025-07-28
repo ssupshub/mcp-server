@@ -20,6 +20,7 @@ A **Microservice Control Plane (MCP)** server built with Node.js and Express, de
 14. [CI/CD Integration](#cicd-integration)
 15. [Troubleshooting](#troubleshooting)
 16. [Contributing](#contributing)
+17. [License](#license)
 
 ---
 
@@ -60,7 +61,7 @@ The MCP Server offers a lightweight control plane for monitoring and managing mi
 ### 1. Locally (Node.js)
 
 ```bash
-git clone https://github.com/<org>/mcp-server.git
+git clone https://github.com/your-org/mcp-server.git
 cd mcp-server
 npm install
 npm run dev
@@ -75,14 +76,14 @@ docker build -t mcp-server .
 docker run -d -p 3000:3000 --env-file .env mcp-server
 ```
 
-* Access: `http://<host-ip>:3000`
+* Access: `http://<server-ip>:3000`
 
 ### 3. AWS EC2 (Ubuntu AMI)
 
 ```bash
-# On EC2
 sudo apt update && sudo apt install -y docker.io git
-git clone https://github.com/<org>/mcp-server.git
+
+git clone https://github.com/your-org/mcp-server.git
 cd mcp-server
 docker build -t mcp-server .
 docker run -d -p 3000:3000 --env-file .env mcp-server
@@ -111,42 +112,43 @@ docker-compose up --build -d
 
 ```bash
 # Ensure image is pushed to ECR or Docker Hub
-kubectl apply -f k8s/
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
 ```
 
 * Minikube: `minikube service mcp-service -n mcp`
-* EKS: ALB DNS via Ingress
+* EKS: Use ALB DNS name
 
 ## Setup and Installation
 
 1. **Clone Repo**
 
-   ```bash
-   ```
-
-git clone [https://github.com/](https://github.com/)<org>/mcp-server.git
+```bash
+git clone https://github.com/your-org/mcp-server.git
 cd mcp-server
+```
 
-````
-2. **Install Dependencies**  
-   ```bash
+2. **Install Dependencies**
+
+```bash
 npm install
-````
+```
 
-3. **Configure .env**
+3. **Configure Environment**
 
-   ```bash
-   ```
-
+```bash
 cp .env.example .env
+# Update PORT, DB_URI, LOG_LEVEL
+```
 
-# Update values
+4. **Build for Production**
 
-````
-4. **Build for Production**  
-   ```bash
+```bash
 npm run build
-````
+```
 
 ## Project Structure
 
@@ -193,76 +195,75 @@ mcp-server/
 
 ## What to Expect
 
-* **Rapid health checks** with minimal latency.
-* **High availability** via multiple replicas.
-* **Zero-downtime** deployments using rolling updates.
-* **Centralized control-plane** for microservices.
+* **Rapid health checks** with minimal latency
+* **High availability** via multiple replicas
+* **Zero-downtime** rolling updates
+* **Centralized control-plane** for microservices
 
 ## Deployment Guide
 
 1. **Authenticate & Build Image**
 
-   ```bash
-   ```
-
-aws ecr get-login-password --region \$AWS\_REGION&#x20;
-\| docker login --username AWS --password-stdin \$AWS\_ACCOUNT\_ID.dkr.ecr.\$AWS\_REGION.amazonaws.com
+```bash
+aws ecr get-login-password --region $AWS_REGION \
+  | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 npm run build
-docker build -t \$AWS\_ACCOUNT\_ID.dkr.ecr.\$AWS\_REGION.amazonaws.com/mcp-server\:latest .
+docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mcp-server:latest .
+```
 
-````
-2. **Push to ECR**  
-   ```bash
+2. **Push to ECR**
+
+```bash
 docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mcp-server:latest
-````
+```
 
 3. **Terraform Provision**
 
-   ```bash
-   ```
-
+```bash
 cd terraform
 terraform init
 terraform apply
+```
 
-````
-4. **Kubernetes Deploy**  
-   ```bash
-kubectl apply -f k8s/
-````
+4. **Kubernetes Deploy**
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
 
 5. **Verify**
 
-   ```bash
-   ```
-
+```bash
 kubectl get pods,svc,ingress -n mcp
-
-````
+```
 
 ## API Endpoints
 
-- **GET /api/health**  
+* **GET /api/health**
+
   ```json
   { "status": "UP", "uptime": 123.45 }
-````
-
-* **Add your own control endpoints in `src/controllers`.**
+  ```
+* **Extend by adding endpoints in `src/controllers`**
 
 ## Configuration
 
-* **Local development**: `.env` file
+* **Local**: `.env` file
 * **Production**: Kubernetes ConfigMap & Secrets
 
 ## Monitoring & Logging
 
-* Integrate **Prometheus** for metrics scraping
-* Use **Grafana** dashboards for visualization
-* Ship logs with **Fluentd** into **Elasticsearch–Kibana (EFK)**
+* Use **Prometheus** for metrics
+* Visualize with **Grafana**
+* Aggregate logs with **Fluentd** into **EFK**
 
 ## CI/CD Integration
 
-Example GitHub Actions workflow in `.github/workflows/ci.yml`:
+Example GitHub Actions workflow:
 
 ```yaml
 name: CI/CD Pipeline
@@ -272,18 +273,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Node
-        uses: actions/setup-node@v2
+      - uses: actions/setup-node@v2
         with:
           node-version: '18'
       - run: npm install && npm run build
       - run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
             | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-      - run: |
-          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mcp-server:latest .
+      - run: docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mcp-server:latest .
       - run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mcp-server:latest
-      - run: kubectl apply -f k8s/
+      - run: kubectl apply -f k8s/namespace.yaml
+      - run: kubectl apply -f k8s/configmap.yaml
+      - run: kubectl apply -f k8s/deployment.yaml
+      - run: kubectl apply -f k8s/service.yaml
+      - run: kubectl apply -f k8s/ingress.yaml
         env:
           KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG }}
 ```
@@ -291,8 +294,8 @@ jobs:
 ## Troubleshooting
 
 * **Pods Crash**: `kubectl logs <pod> -n mcp`
-* **ImagePullBackOff**: Verify ECR repo and IAM policy
-* **Ingress Issues**: Check ALB logs and DNS configuration
+* **ImagePullBackOff**: Verify ECR repo & IAM policy
+* **Ingress Issues**: Check ALB logs & DNS
 
 ## Contributing
 
@@ -301,4 +304,6 @@ jobs:
 3. Implement changes and tests
 4. Open a Pull Request
 
+## License
 
+This project is licensed under the MIT License.
