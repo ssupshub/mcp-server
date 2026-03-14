@@ -1,306 +1,416 @@
-# MCP Server
+# MCP Server v2
 
-A **Microservice Control Plane (MCP)** server built with Node.js and Express, deployed on AWS using Docker, Kubernetes (EKS), and Terraform. This server provides centralized health checks and control endpoints for your microservices, ensuring high availability, scalability, and easy integration into existing architectures.
-
-## Table of Contents
-
-1. [Introduction](#introduction)
-2. [Features](#features)
-3. [Technology Stack](#technology-stack)
-4. [Prerequisites](#prerequisites)
-5. [Running the Project](#running-the-project)
-6. [Setup and Installation](#setup-and-installation)
-7. [Project Structure](#project-structure)
-8. [Environment Variables](#environment-variables)
-9. [What to Expect](#what-to-expect)
-10. [Deployment Guide](#deployment-guide)
-11. [API Endpoints](#api-endpoints)
-12. [Configuration](#configuration)
-13. [Monitoring & Logging](#monitoring--logging)
-14. [CI/CD Integration](#cicd-integration)
-15. [Troubleshooting](#troubleshooting)
-16. [Contributing](#contributing)
+A production-grade **Microservice Control Plane (MCP)** server — fully modernized from v1 with TypeScript, strict security hardening, structured logging, comprehensive testing, and battle-tested Kubernetes manifests.
 
 ---
 
-## Introduction
+## What Changed from v1
 
-The MCP Server offers a lightweight control plane for monitoring and managing microservices. It runs as a containerized Node.js application on an EKS cluster behind an AWS Application Load Balancer (ALB). It simplifies service health checks, centralized configuration, and orchestrated deployments.
+| Area | v1 | v2 |
+|---|---|---|
+| Language | JavaScript (ES Modules + Babel) | **TypeScript 5 (strict mode)** |
+| Runtime | Node 18 | **Node 20 LTS** |
+| Config validation | None — raw `process.env` | **Zod schema validation, fail-fast on startup** |
+| Error handling | None — uncaught crashes | **Typed error classes + centralised Express handler** |
+| Logging | `console.log` | **Winston structured JSON + daily rotating files** |
+| Security headers | None | **Helmet with strict CSP + HSTS** |
+| Rate limiting | None | **Global + per-route limiters** |
+| CORS | None | **Configurable, env-driven** |
+| Database | URI config only, no connection handling | **Mongoose with retry logic, pooling, graceful disconnect** |
+| Health checks | Single `/api/health` endpoint | **Separate `/live`, `/ready`, and full `/health` endpoints** |
+| K8s probes | Single HTTP probe | **Startup + liveness + readiness split correctly** |
+| K8s security | None | **Non-root, read-only rootfs, dropped capabilities** |
+| K8s service type | `LoadBalancer` | **`ClusterIP` — traffic via Ingress/ALB only** |
+| K8s secret handling | ConfigMap for everything | **Secrets for sensitive values, ConfigMap for config** |
+| K8s autoscaling | None | **HPA (CPU + memory) + PodDisruptionBudget** |
+| Docker image | Single-stage, runs as root | **Multi-stage build, non-root user, HEALTHCHECK** |
+| Terraform | EKS only, outdated module | **VPC + EKS v20 + ECR + lifecycle policies + IRSA** |
+| CI/CD | Basic build+push | **Lint → typecheck → test → npm audit → Trivy scan → build → deploy** |
+| Shutdown | Process killed | **Graceful HTTP drain + DB disconnect** |
+| Unhandled errors | Silent crash | **`unhandledRejection` / `uncaughtException` guards with clean exit** |
+| Request tracing | None | **`X-Request-Id` header on every request/response** |
+| API | GET /api/health only | **Full CRUD for services + paginated listing + search** |
+| Tests | None | **Vitest + Supertest, coverage reporting** |
 
-## Features
+---
 
-* **Health Endpoints**: Readiness and liveness probes out of the box.
-* **ConfigMap Integration**: Centralized configuration via Kubernetes ConfigMap.
-* **Automated Container Workflow**: Build, tag, and publish Docker images to ECR.
-* **Infrastructure as Code**: Provision EKS, networking, and IAM with Terraform.
-* **Secure Ingress**: TLS termination via AWS ALB with ACM certificates.
-* **Extensible API**: Easily add custom control-plane endpoints.
+## Table of Contents
 
-## Technology Stack
+1. [Project Structure](#project-structure)
+2. [Prerequisites](#prerequisites)
+3. [Running Locally](#running-locally)
+4. [Environment Variables](#environment-variables)
+5. [API Reference](#api-reference)
+6. [Testing](#testing)
+7. [Docker](#docker)
+8. [Kubernetes (EKS)](#kubernetes-eks)
+9. [Terraform](#terraform)
+10. [CI/CD](#cicd)
+11. [Security Notes](#security-notes)
+12. [Troubleshooting](#troubleshooting)
 
-* **Node.js (v18+) & ES Modules**
-* **Express.js**
-* **Dotenv**
-* **Babel**
-* **Docker & Docker Compose**
-* **AWS ECR & AWS CLI**
-* **Amazon EKS & kubectl**
-* **Terraform**
-* **GitHub Actions (optional)**
-
-## Prerequisites
-
-* **AWS Account** with permissions for ECR, EKS, IAM, ACM.
-* **Local Tools**: Node.js, npm, Docker, AWS CLI, kubectl, Terraform.
-* **DNS**: A domain or subdomain for ALB Ingress if using HTTPS.
-* **IAM Roles**: For EC2 nodes and CI/CD pipelines.
-
-## Running the Project
-
-### 1. Locally (Node.js)
-
-```bash
-git clone https://github.com/ssupshub/mcp-server.git
-cd mcp-server
-npm install
-npm run dev
-```
-
-* Access: `http://localhost:3000`
-
-### 2. Docker (Ubuntu/Linux)
-
-```bash
-docker build -t mcp-server .
-docker run -d -p 3000:3000 --env-file .env mcp-server
-```
-
-* Access: `http://<server-ip>:3000`
-
-### 3. AWS EC2 (Ubuntu AMI)
-
-```bash
-sudo apt update && sudo apt install -y docker.io git
-
-git clone https://github.com/ssupshub/mcp-server.git
-cd mcp-server
-docker build -t mcp-server .
-docker run -d -p 3000:3000 --env-file .env mcp-server
-```
-
-* Access via EC2 public DNS or Elastic IP
-
-### 4. Docker Compose
-
-```yaml
-version: "3.8"
-services:
-  mcp-server:
-    build: .
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-```
-
-```bash
-docker-compose up --build -d
-```
-
-### 5. Kubernetes (Minikube / EKS)
-
-```bash
-# Ensure image is pushed to ECR or Docker Hub
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
-```
-
-* Minikube: `minikube service mcp-service -n mcp`
-* EKS: Use ALB DNS name
-
-## Setup and Installation
-
-1. **Clone Repo**
-
-```bash
-git clone https://github.com/ssupshub/mcp-server.git
-cd mcp-server
-```
-
-2. **Install Dependencies**
-
-```bash
-npm install
-```
-
-3. **Configure Environment**
-
-```bash
-cp .env.example .env
-# Update PORT, DB_URI, LOG_LEVEL
-```
-
-4. **Build for Production**
-
-```bash
-npm run build
-```
+---
 
 ## Project Structure
 
-```plaintext
+```
 mcp-server/
-├── .dockerignore
-├── .gitignore
-├── Dockerfile
-├── docker-compose.yml (optional)
-├── package.json
-├── .env.example
-├── README.md
-├── scripts/
-│   ├── deploy.sh
-│   └── setup-acm.md
 ├── src/
-│   ├── index.js
+│   ├── index.ts                  # Entrypoint — bootstrap, graceful shutdown
+│   ├── app.ts                    # Express app factory (testable, no side effects)
 │   ├── config/
-│   │   └── config.js
+│   │   └── env.ts                # Zod-validated environment config
 │   ├── controllers/
-│   │   └── mcpController.js
-│   └── routes/
-│       └── mcpRoutes.js
-├── dist/ (build output)
+│   │   ├── healthController.ts   # /health, /health/live, /health/ready
+│   │   └── serviceController.ts  # CRUD for registered microservices
+│   ├── middleware/
+│   │   ├── errorHandler.ts       # Centralised error + 404 handler
+│   │   ├── httpLogger.ts         # Structured HTTP request logging
+│   │   └── requestId.ts          # X-Request-Id tracing header
+│   ├── models/
+│   │   └── service.ts            # Mongoose model with indexes + transforms
+│   ├── routes/
+│   │   ├── health.ts
+│   │   └── services.ts           # Per-route rate limiting
+│   ├── services/
+│   │   └── database.ts           # Singleton DB service, retry + pooling
+│   └── utils/
+│       ├── errors.ts             # Typed AppError hierarchy
+│       └── logger.ts             # Winston logger + HTTP stream
+├── tests/
+│   └── health.test.ts
 ├── k8s/
 │   ├── namespace.yaml
 │   ├── configmap.yaml
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── ingress.yaml
-└── terraform/
-    ├── main.tf
-    ├── variables.tf
-    └── outputs.tf
+│   ├── secret.yaml               # Template — never commit real values
+│   ├── deployment.yaml           # Non-root, read-only rootfs, topology spread
+│   ├── service.yaml              # ClusterIP (not LoadBalancer)
+│   ├── ingress.yaml              # ALB with TLS, WAF-ready, access logs
+│   └── hpa-pdb.yaml              # HPA + PodDisruptionBudget
+├── terraform/
+│   ├── main.tf                   # VPC + EKS v20 + ECR + lifecycle policies
+│   ├── variables.tf
+│   └── outputs.tf
+├── scripts/
+│   └── deploy.sh                 # Idempotent build → push → rollout script
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml             # Full CI/CD pipeline
+├── Dockerfile                    # Multi-stage, non-root, HEALTHCHECK
+├── docker-compose.yml            # Local dev with MongoDB + Mongo Express
+├── tsconfig.json
+├── vitest.config.ts
+├── eslint.config.js
+├── .env.example
+└── package.json
 ```
+
+---
+
+## Prerequisites
+
+- **Node.js 20+** and npm
+- **Docker** (for container builds)
+- **AWS CLI v2** configured with appropriate permissions
+- **kubectl** connected to your cluster
+- **Terraform 1.6+** (for infra provisioning)
+
+---
+
+## Running Locally
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/your-org/mcp-server.git
+cd mcp-server
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env — at minimum set DB_URI if you have a local MongoDB
+```
+
+### 3. Start with Docker Compose (recommended)
+
+```bash
+# Starts mcp-server + MongoDB
+docker compose up --build
+
+# Also starts Mongo Express UI at http://localhost:8081
+docker compose --profile debug up --build
+```
+
+### 4. Start without Docker
+
+```bash
+# Requires a running MongoDB instance
+npm run dev
+```
+
+Server runs at `http://localhost:3000`.
+
+---
 
 ## Environment Variables
 
-| Key        | Description               | Default                         |
-| ---------- | ------------------------- | ------------------------------- |
-| PORT       | HTTP port                 | `3000`                          |
-| LOG\_LEVEL | Application log verbosity | `info`                          |
-| DB\_URI    | MongoDB connection string | `mongodb://localhost:27017/mcp` |
+| Variable | Description | Default |
+|---|---|---|
+| `PORT` | HTTP port | `3000` |
+| `NODE_ENV` | Runtime environment | `development` |
+| `API_VERSION` | API version prefix | `v1` |
+| `LOG_LEVEL` | Winston log level | `info` |
+| `DB_URI` | MongoDB connection URI | `mongodb://localhost:27017/mcp` |
+| `DB_POOL_SIZE` | Mongoose connection pool size | `10` |
+| `DB_CONNECT_TIMEOUT_MS` | DB connection timeout | `5000` |
+| `RATE_LIMIT_WINDOW_MS` | Rate-limit window (ms) | `900000` (15 min) |
+| `RATE_LIMIT_MAX` | Max requests per window | `100` |
+| `CORS_ORIGINS` | Allowed CORS origins (`*` or CSV) | `*` |
+| `REQUEST_TIMEOUT_MS` | Request timeout | `30000` |
+| `SHUTDOWN_TIMEOUT_MS` | Graceful shutdown window | `10000` |
 
-## What to Expect
+All variables are validated on startup via Zod — the process exits immediately with a descriptive error if anything is misconfigured.
 
-* **Rapid health checks** with minimal latency
-* **High availability** via multiple replicas
-* **Zero-downtime** rolling updates
-* **Centralized control-plane** for microservices
+---
 
-## Deployment Guide
+## API Reference
 
-1. **Authenticate & Build Image**
+All endpoints are prefixed `/api/v1`.
 
-```bash
-aws ecr get-login-password --region $AWS_REGION \
-  | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-npm run build
-docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mcp-server:latest .
+### Health
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/health` | Full health report (DB ping, memory) |
+| GET | `/api/v1/health/live` | Liveness probe — process alive? |
+| GET | `/api/v1/health/ready` | Readiness probe — DB connected? |
+
+**GET /api/v1/health** response:
+
+```json
+{
+  "status": "UP",
+  "version": "v1",
+  "uptime": 123.456,
+  "timestamp": "2025-01-01T00:00:00.000Z",
+  "checks": {
+    "database": { "status": "UP", "responseTimeMs": 2 },
+    "memory": {
+      "status": "UP",
+      "heapUsedMb": 45.2,
+      "heapTotalMb": 68.0,
+      "externalMb": 1.4,
+      "rssM": 82.1
+    }
+  }
+}
 ```
 
-2. **Push to ECR**
+### Services
 
-```bash
-docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mcp-server:latest
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/services` | List services (paginated, searchable) |
+| GET | `/api/v1/services/:id` | Get single service |
+| POST | `/api/v1/services` | Register a new service |
+| PATCH | `/api/v1/services/:id` | Update a service |
+| DELETE | `/api/v1/services/:id` | Deregister a service |
+
+**Query params for GET /services:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `page` | number | 1 | Page number |
+| `limit` | number | 20 | Items per page (max 100) |
+| `sort` | string | `createdAt` | Sort field |
+| `order` | `asc`/`desc` | `desc` | Sort direction |
+| `search` | string | — | Search name/description |
+
+**POST /api/v1/services** body:
+
+```json
+{
+  "name": "user-service",
+  "url": "https://users.internal.svc",
+  "description": "Handles user auth and profiles",
+  "tags": ["auth", "users"],
+  "metadata": { "team": "platform" }
+}
 ```
 
-3. **Terraform Provision**
+All error responses follow a consistent shape:
 
-```bash
-cd terraform
-terraform init
-terraform apply
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "requestId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+}
 ```
 
-4. **Kubernetes Deploy**
+---
+
+## Testing
+
+```bash
+# Run tests once
+npm test
+
+# Watch mode
+npm run test:watch
+
+# With coverage report (HTML + lcov)
+npm run test:coverage
+```
+
+---
+
+## Docker
+
+```bash
+# Build production image
+docker build -t mcp-server:latest .
+
+# Run
+docker run -d \
+  -p 3000:3000 \
+  --env-file .env \
+  mcp-server:latest
+```
+
+The image:
+- Uses **multi-stage build** (builder + minimal production image)
+- Runs as **non-root user** (`appuser`, UID 1001)
+- Has a built-in **HEALTHCHECK** pointing at `/api/v1/health/live`
+- Based on `node:20-alpine` (~180 MB final image)
+
+---
+
+## Kubernetes (EKS)
+
+### 1. Create Secrets
+
+```bash
+# Base64-encode your values
+DB_URI_B64=$(echo -n "mongodb://user:pass@host:27017/mcp" | base64)
+CORS_B64=$(echo -n "https://app.example.com" | base64)
+
+# Edit k8s/secret.yaml, replace placeholders, then apply
+kubectl apply -f k8s/secret.yaml
+```
+
+> **Never commit real secret values.** Use AWS Secrets Manager + External Secrets Operator or Sealed Secrets in production.
+
+### 2. Apply manifests
 
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
 kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/hpa-pdb.yaml
 ```
 
-5. **Verify**
+### 3. Verify
 
 ```bash
-kubectl get pods,svc,ingress -n mcp
+kubectl get pods,svc,ingress,hpa,pdb -n mcp
+kubectl rollout status deployment/mcp-deployment -n mcp
 ```
 
-## API Endpoints
+### Key K8s improvements
 
-* **GET /api/health**
+- **Startup probe** — gives the app time to connect to DB before liveness kicks in, eliminating crash-loops on cold start
+- **Split liveness/readiness** — liveness is fast (no DB), readiness checks DB so traffic is only routed to ready pods
+- **`ClusterIP` service** — external traffic only enters through ALB, reducing attack surface
+- **`readOnlyRootFilesystem: true`** — writable `emptyDir` volumes for `/tmp` and `/app/logs` only
+- **`capabilities: drop: [ALL]`** — no Linux capabilities granted to container process
+- **Topology spread constraints** — pods distributed across AZs automatically
+- **HPA** — scales on both CPU and memory, with stabilisation windows to prevent flapping
+- **PodDisruptionBudget** — guarantees minimum 2 pods during node drains/upgrades
 
-  ```json
-  { "status": "UP", "uptime": 123.45 }
-  ```
-* **Extend by adding endpoints in `src/controllers`**
+---
 
-## Configuration
+## Terraform
 
-* **Local**: `.env` file
-* **Production**: Kubernetes ConfigMap & Secrets
+```bash
+cd terraform
 
-## Monitoring & Logging
+# Initialise (downloads providers + modules)
+terraform init
 
-* Use **Prometheus** for metrics
-* Visualize with **Grafana**
-* Aggregate logs with **Fluentd** into **EFK**
+# Preview changes
+terraform plan -var="environment=production"
 
-## CI/CD Integration
+# Apply
+terraform apply -var="environment=production"
 
-Example GitHub Actions workflow:
-
-```yaml
-name: CI/CD Pipeline
-on: [push]
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-      - run: npm install && npm run build
-      - run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-            | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-      - run: docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mcp-server:latest .
-      - run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mcp-server:latest
-      - run: kubectl apply -f k8s/namespace.yaml
-      - run: kubectl apply -f k8s/configmap.yaml
-      - run: kubectl apply -f k8s/deployment.yaml
-      - run: kubectl apply -f k8s/service.yaml
-      - run: kubectl apply -f k8s/ingress.yaml
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG }}
+# Get kubeconfig update command
+terraform output kubeconfig_command
 ```
+
+Infrastructure provisioned:
+- **VPC** with public + private subnets across 3 AZs, NAT gateways
+- **EKS cluster** (v1.31) with managed node groups, encrypted EBS, IRSA enabled
+- **ECR repository** with image scanning on push + lifecycle policies
+- All resources tagged with `Project`, `Environment`, `ManagedBy`
+
+---
+
+## CI/CD
+
+The GitHub Actions pipeline (`.github/workflows/ci-cd.yml`) runs on every push to `main`:
+
+```
+push to main
+  │
+  ├─ quality    lint + typecheck + vitest coverage
+  ├─ security   npm audit + Trivy filesystem scan
+  ├─ build      Docker build → push to ECR → Trivy image scan
+  └─ deploy     kubectl rollout → wait for completion
+```
+
+Pull requests run `quality` and `security` only (no deployment).
+
+Required GitHub secrets:
+
+| Secret | Description |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | CI IAM user access key |
+| `AWS_SECRET_ACCESS_KEY` | CI IAM user secret |
+| `AWS_REGION` | e.g. `us-east-1` |
+| `CODECOV_TOKEN` | Optional — for coverage upload |
+
+---
+
+## Security Notes
+
+1. **Secrets** — Never store sensitive values in ConfigMaps. Use K8s Secrets + a secrets manager.
+2. **ECR** — Images are immutable-tagged and scanned on push. Pin image tags in production deployments.
+3. **ALB + WAF** — The Ingress annotation for WAF ACL is commented out. Uncomment and set your ACL ARN.
+4. **Network policies** — Add `NetworkPolicy` resources to restrict pod-to-pod communication.
+5. **RBAC** — Create a dedicated `ServiceAccount` with minimal permissions for the MCP deployment.
+6. **Terraform state** — Uncomment the S3 backend block in `main.tf` for remote, encrypted state.
+7. **`CORS_ORIGINS`** — Set to your actual domains in production, never `*`.
+8. **`cluster_public_access_cidrs`** — Restrict to your office/VPN CIDR in production.
+
+---
 
 ## Troubleshooting
 
-* **Pods Crash**: `kubectl logs <pod> -n mcp`
-* **ImagePullBackOff**: Verify ECR repo & IAM policy
-* **Ingress Issues**: Check ALB logs & DNS
-
-## Contributing
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/xyz`)
-3. Implement changes and tests
-4. Open a Pull Request
-
-
+| Symptom | Command |
+|---|---|
+| Pod crash-looping | `kubectl logs <pod> -n mcp --previous` |
+| ImagePullBackOff | `kubectl describe pod <pod> -n mcp` — check ECR auth + IAM |
+| Readiness failing | `kubectl exec -n mcp <pod> -- wget -qO- localhost:3000/api/v1/health/ready` |
+| ALB not routing | Check ALB target group health in AWS Console |
+| DB connection errors | Verify `DB_URI` in secret, check security groups |
+| HPA not scaling | `kubectl describe hpa mcp-hpa -n mcp` — check metrics-server is installed |
