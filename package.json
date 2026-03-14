@@ -1,24 +1,64 @@
 {
   "name": "mcp-server",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "Microservice Control Plane server — modernized, secure, production-grade",
   "type": "module",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "build": "babel src --out-dir dist --copy-files",
+    "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "audit": "npm audit --audit-level=high",
+    "prepare": "husky install"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "dotenv": "^16.0.3"
+    "express": "^4.21.2",
+    "dotenv": "^16.4.5",
+    "helmet": "^8.0.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.4.1",
+    "compression": "^1.7.4",
+    "mongoose": "^8.7.0",
+    "winston": "^3.15.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "zod": "^3.23.8",
+    "uuid": "^10.0.0",
+    "express-async-errors": "^3.1.1",
+    "http-graceful-shutdown": "^3.1.13"
   },
   "devDependencies": {
-    "@babel/cli": "^7.21.5",
-    "@babel/core": "^7.21.5",
-    "@babel/preset-env": "^7.21.5",
-    "nodemon": "^3.0.1"
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
+    "@types/node": "^22.7.5",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.1",
+    "vitest": "^2.1.2",
+    "@vitest/coverage-v8": "^2.1.2",
+    "supertest": "^7.0.0",
+    "@types/supertest": "^6.0.2",
+    "eslint": "^9.12.0",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "prettier": "^3.3.3",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10"
   },
-  "babel": {
-    "presets": ["@babel/preset-env"]
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }
