@@ -3,7 +3,18 @@ kind: ConfigMap
 metadata:
   name: mcp-config
   namespace: mcp
+  labels:
+    app: mcp
+    app.kubernetes.io/name: mcp-server
+    app.kubernetes.io/component: config
 data:
   PORT: "3000"
+  NODE_ENV: "production"
   LOG_LEVEL: "info"
-  DB_URI: "mongodb://mongo.default.svc.cluster.local:27017/mcp"
+  API_VERSION: "v1"
+  DB_POOL_SIZE: "10"
+  DB_CONNECT_TIMEOUT_MS: "5000"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  RATE_LIMIT_MAX: "100"
+  REQUEST_TIMEOUT_MS: "30000"
+  SHUTDOWN_TIMEOUT_MS: "10000"
