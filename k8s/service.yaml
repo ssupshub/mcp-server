@@ -3,13 +3,17 @@ kind: Service
 metadata:
   name: mcp-service
   namespace: mcp
-labels:
-  app: mcp
+  labels:
+    app: mcp
+    app.kubernetes.io/name: mcp-server
+    app.kubernetes.io/component: backend
 spec:
-  type: LoadBalancer
+  # ClusterIP is safer than LoadBalancer; external access via Ingress/ALB only
+  type: ClusterIP
   selector:
     app: mcp
   ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 3000
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
