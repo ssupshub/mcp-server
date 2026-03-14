@@ -3,21 +3,38 @@ kind: Ingress
 metadata:
   name: mcp-ingress
   namespace: mcp
+  labels:
+    app: mcp
+    app.kubernetes.io/name: mcp-server
   annotations:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/certificate-arn: <YOUR_ACM_CERT_ARN>
+    # Health-check path uses the lightweight liveness endpoint
+    alb.ingress.kubernetes.io/healthcheck-path: /api/v1/health/live
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    # Enable access logs to S3
+    alb.ingress.kubernetes.io/load-balancer-attributes: >-
+      access_logs.s3.enabled=true,
+      access_logs.s3.bucket=<YOUR_ALB_LOGS_BUCKET>,
+      routing.http.drop_invalid_header_fields.enabled=true
+    # WAF integration (replace with your WebACL ARN)
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: <YOUR_WAF_ACL_ARN>
 spec:
   rules:
-  - host: mcp.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: mcp-service
-            port:
-              number: 80
+    - host: mcp.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-service
+                port:
+                  name: http
