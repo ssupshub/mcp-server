@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  mcp-server:
+    build:
+      context: .
+      target: production
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DB_URI: "mongodb://mongo:27017/mcp"
+      NODE_ENV: production
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - mcp-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  mongo:
+    image: mongo:7-jammy
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: mcp
+    networks:
+      - mcp-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  mongo-express:
+    image: mongo-express:latest
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: "mongodb://mongo:27017/"
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - mcp-net
+    profiles:
+      - debug
+
+volumes:
+  mongo-data:
+
+networks:
+  mcp-net:
+    driver: bridge
