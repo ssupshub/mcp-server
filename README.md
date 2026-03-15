@@ -413,4 +413,4 @@ Required GitHub secrets:
 | Readiness failing | `kubectl exec -n mcp <pod> -- wget -qO- localhost:3000/api/v1/health/ready` |
 | ALB not routing | Check ALB target group health in AWS Console |
 | DB connection errors | Verify `DB_URI` in secret, check security groups |
-| HPA not scaling | `kubectl describe hpa mcp-hpa -n mcp` — check metrics-server is installed |
+
