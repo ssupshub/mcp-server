@@ -64,5 +64,5 @@ export const logger = winston.createLogger({
 
 // Morgan-compatible HTTP stream
 export const httpLogStream = {
-  write: (message: string) => logger.http(message.trim()),
+  write: (message: string): void => logger.http(message.trim()),
 };
