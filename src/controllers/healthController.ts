@@ -66,7 +66,7 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
         ? 'DEGRADED'
         : 'UP';
 
-  const httpStatus = overallStatus === 'DOWN' ? 503 : 200;
+  const httpStatus = overallStatus === 'DEGRADED' ? 503 : 200;
 
   const payload: HealthStatus = {
     status: overallStatus,
