@@ -16,7 +16,6 @@ interface ErrorResponse {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(
   err: Error,
   req: Request,
