@@ -49,12 +49,11 @@ const serviceSchema = new Schema<ServiceDocument>(
   },
   {
     timestamps: true,
-    // Never expose __v to API consumers
     versionKey: false,
     toJSON: {
-      transform(_doc, ret) {
+      transform(_doc, ret: Record<string, unknown>): Record<string, unknown> {
         ret['id'] = ret['_id'];
-        delete ret['_id'];
+        ret['_id'] = undefined;
         return ret;
       },
     },
