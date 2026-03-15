@@ -10,7 +10,7 @@ on:
 
 env:
   NODE_VERSION: "20"
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
   ECR_REPOSITORY: mcp-server
   EKS_CLUSTER_NAME: mcp-cluster
 
